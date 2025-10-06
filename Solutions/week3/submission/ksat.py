@@ -1,34 +1,35 @@
-import string
-import random
+import string as st
+import random as rnd
 from itertools import combinations
 
-def getinput(prompt):
-    return int(input(prompt))
+def ask_int(msg):
+    return int(input(msg))
 
-def generaterandomclauses(cc, vc, tv):
-    lvars=list(string.ascii_lowercase[:tv])
-    uvars=[v.upper() for v in lvars]
-    allvariables=lvars + uvars
-    
-    maxi = 18
-    unik = set()
-    allv = list(combinations(allvariables, vc))
-    
-    at = 0
-    while len(unik) < cc and at < maxi:
-        newclause = tuple(sorted(random.sample(allv,1)[0]))
-        if newclause not in unik:
-            unik.add(newclause)
-        at += 1
-    
-    return [list(clause) for clause in unik]
+def create_random_clauses(num_clauses, vars_per_clause, total_vars):
+    letters = list(st.ascii_lowercase[:total_vars])
+    capitals = [l.upper() for l in letters]
+    symbols = letters + capitals
+
+    max_attempts = 18
+    unique_clauses = set()
+    all_combs = list(combinations(symbols, vars_per_clause))
+
+    attempt = 0
+    while len(unique_clauses) < num_clauses and attempt < max_attempts:
+        clause = tuple(sorted(rnd.sample(all_combs, 1)[0]))
+        if clause not in unique_clauses:
+            unique_clauses.add(clause)
+        attempt += 1
+
+    return [list(c) for c in unique_clauses]
 
 def main():
     print("Random Clause Generator")
-    cc = getinput("Enter the number of clauses: ")
-    vc = getinput("Enter the number of variables in a clause: ")
-    tv = getinput("Enter the total number of variables: ")
-    for _,clause in enumerate(generaterandomclauses(cc,vc,tv), 1):
+    num_clauses = ask_int("Enter the number of clauses: ")
+    vars_per_clause = ask_int("Enter the number of variables in a clause: ")
+    total_vars = ask_int("Enter the total number of variables: ")
+
+    for idx, clause in enumerate(create_random_clauses(num_clauses, vars_per_clause, total_vars), 1):
         print(f"{clause}")
 
 if __name__ == "__main__":

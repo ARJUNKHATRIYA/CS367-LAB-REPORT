@@ -1,97 +1,96 @@
-import string as strg
+import string as st
 import random as rnd
 from itertools import combinations
 import numpy as np
 
-def ask(m):
-    return int(input(m))
+def ask_int(msg):
+    return int(input(msg))
 
-def mkfmls(fc, vf, tv):
-    lv = list(strg.ascii_lowercase[:tv])
-    uv = [v.upper() for v in lv]
-    symbs = lv + uv
-    mx, unq = 20, set()
-    combs = list(combinations(symbs, vf))
+def generate_formulas(num_formulas, vars_per_formula, total_vars):
+    letters = list(st.ascii_lowercase[:total_vars])
+    capitals = [l.upper() for l in letters]
+    symbols = letters + capitals
+    max_iter, unique_forms = 20, set()
+    all_combs = list(combinations(symbols, vars_per_formula))
     i = 0
-    while len(unq) < fc and i < mx:
-        nf = tuple(sorted(rnd.choice(combs)))
-        if nf not in unq:
-            unq.add(nf)
+    while len(unique_forms) < num_formulas and i < max_iter:
+        new_form = tuple(sorted(rnd.choice(all_combs)))
+        if new_form not in unique_forms:
+            unique_forms.add(new_form)
         i += 1
-    return [list(f) for f in unq]
+    return [list(f) for f in unique_forms]
 
-def mkasn(symbs, tv):
-    la = list(np.random.choice(2, tv))
-    ua = [1 - i for i in la]
-    return dict(zip(symbs, la + ua))
+def generate_assignment(symbols, total_vars):
+    low = list(np.random.choice(2, total_vars))
+    high = [1 - x for x in low]
+    return dict(zip(symbols, low + high))
 
-def evlfml(fml, asn):
-    return sum(any(asn[v] for v in c) for c in fml)
+def evaluate_formula(formulas, assignment):
+    return sum(any(assignment[v] for v in f) for f in formulas)
 
-def hclimb(fml, asn, ps, fs, ts):
-    ba = asn.copy()
-    ms, ma = ps, asn.copy()
-    for k, v in asn.items():
-        ts += 1
-        ta = asn.copy()
-        ta[k] = 1 - v
-        s = evlfml(fml, ta)
-        if s > ms:
-            fs, ms, ma = ts, s, ta.copy()
-    if ms == ps:
-        return ba, ms, f"{fs}/{ts - len(asn)}"
-    return hclimb(fml, ma, ms, fs, ts)
+def hill_climb(formulas, assignment, current_score, last_step, step_count):
+    base_assign = assignment.copy()
+    best_score, best_assign = current_score, assignment.copy()
+    for k, v in assignment.items():
+        step_count += 1
+        new_assign = assignment.copy()
+        new_assign[k] = 1 - v
+        score = evaluate_formula(formulas, new_assign)
+        if score > best_score:
+            last_step, best_score, best_assign = step_count, score, new_assign.copy()
+    if best_score == current_score:
+        return base_assign, best_score, f"{last_step}/{step_count - len(assignment)}"
+    return hill_climb(formulas, best_assign, best_score, last_step, step_count)
 
-def bsrch(fml, asn, bw, sc):
-    if evlfml(fml, asn) == len(fml):
-        return asn, f"{sc}/{sc}"
-    cands = []
-    for k, v in asn.items():
-        sc += 1
-        na = asn.copy()
-        na[k] = 1 - v
-        s = evlfml(fml, na)
-        cands.append((na, s, sc))
-    best = sorted(cands, key=lambda x: x[1])[-bw:]
-    if len(fml) in [c[1] for c in best]:
-        sol = next(c for c in best if c[1] == len(fml))
-        return sol[0], f"{sol[2]}/{sc}"
-    return bsrch(fml, best[-1][0], bw, sc)
+def beam_search(formulas, assignment, beam_width, step_count):
+    if evaluate_formula(formulas, assignment) == len(formulas):
+        return assignment, f"{step_count}/{step_count}"
+    candidates = []
+    for k, v in assignment.items():
+        step_count += 1
+        new_assign = assignment.copy()
+        new_assign[k] = 1 - v
+        score = evaluate_formula(formulas, new_assign)
+        candidates.append((new_assign, score, step_count))
+    best = sorted(candidates, key=lambda x: x[1])[-beam_width:]
+    if len(formulas) in [c[1] for c in best]:
+        sol = next(c for c in best if c[1] == len(formulas))
+        return sol[0], f"{sol[2]}/{step_count}"
+    return beam_search(formulas, best[-1][0], beam_width, step_count)
 
-def vnbhd(fml, asn, ns, step):
-    if evlfml(fml, asn) == len(fml):
-        return asn, f"{step}/{step}", ns
-    cands = []
-    for k, v in asn.items():
-        step += 1
-        na = asn.copy()
-        na[k] = 1 - v
-        s = evlfml(fml, na)
-        cands.append((na, s, step))
-    best = sorted(cands, key=lambda x: x[1])[-ns:]
-    if len(fml) in [c[1] for c in best]:
-        sol = next(c for c in best if c[1] == len(fml))
-        return sol[0], f"{sol[2]}/{step}", ns
-    return vnbhd(fml, best[-1][0], ns + 1, step)
+def variable_neighborhood(formulas, assignment, neighborhood_size, step_count):
+    if evaluate_formula(formulas, assignment) == len(formulas):
+        return assignment, f"{step_count}/{step_count}", neighborhood_size
+    candidates = []
+    for k, v in assignment.items():
+        step_count += 1
+        new_assign = assignment.copy()
+        new_assign[k] = 1 - v
+        score = evaluate_formula(formulas, new_assign)
+        candidates.append((new_assign, score, step_count))
+    best = sorted(candidates, key=lambda x: x[1])[-neighborhood_size:]
+    if len(formulas) in [c[1] for c in best]:
+        sol = next(c for c in best if c[1] == len(formulas))
+        return sol[0], f"{sol[2]}/{step_count}", neighborhood_size
+    return variable_neighborhood(formulas, best[-1][0], neighborhood_size + 1, step_count)
 
-def run():
- 
-    fc = int(input("Formula: "))
-    vf = int(input("Variable per formula: "))
-    tv = int(input("Total var: "))
-    fmls = mkfmls(fc, vf, tv)
-    symbs = list(strg.ascii_lowercase[:tv]) + [c.upper() for c in strg.ascii_lowercase[:tv]]
+def main():
+    num_formulas = int(input("Formula count: "))
+    vars_per_formula = int(input("Variables per formula: "))
+    total_vars = int(input("Total variables: "))
+    formulas = generate_formulas(num_formulas, vars_per_formula, total_vars)
+    symbols = list(st.ascii_lowercase[:total_vars]) + [c.upper() for c in st.ascii_lowercase[:total_vars]]
    
-    for i, fml in enumerate(fmls, 1):
-        print(f"\n {i}: {fml}")
-        ia = mkasn(symbs, tv)
-        is_ = evlfml(fml, ia)
-        _, hs, hp = hclimb(fml, ia, is_, 1, 1)
-        ba, bp = bsrch(fml, ia, 3, 1)
-        va, vp, vn = vnbhd(fml, ia, 1, 1)
-        print(f"HC: S={hs}, P={hp}")
-        print(f"BS: S={evlfml(fml, ba)}, P={bp}")
-        print(f"VND: S={evlfml(fml, va)}, P={vp}, N={vn}")
+    for idx, f in enumerate(formulas, 1):
+        print(f"\n{idx}: {f}")
+        assignment = generate_assignment(symbols, total_vars)
+        score = evaluate_formula(f, assignment)
+        _, hc_score, hc_path = hill_climb(f, assignment, score, 1, 1)
+        bs_assign, bs_path = beam_search(f, assignment, 3, 1)
+        vn_assign, vn_path, vn_size = variable_neighborhood(f, assignment, 1, 1)
+        print(f"HC: S={hc_score}, P={hc_path}")
+        print(f"BS: S={evaluate_formula(f, bs_assign)}, P={bs_path}")
+        print(f"VND: S={evaluate_formula(f, vn_assign)}, P={vn_path}, N={vn_size}")
 
 if __name__ == "__main__":
-    run()
+    main()

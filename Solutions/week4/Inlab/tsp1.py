@@ -2,58 +2,55 @@ import math
 import random
 import time
 
-def distance(city1, city2):
-    return math.sqrt((city1[0]-city2[0])**2 + (city1[1]-city2[1])**2)
+def calc_distance(pt1, pt2):
+    return math.sqrt((pt1[0] - pt2[0])**2 + (pt1[1] - pt2[1])**2)
 
-def td(tour):
-    return sum(distance(tour[i], tour[(i+1) % len(tour)]) for i in range(len(tour)))
+def tour_length(path):
+    return sum(calc_distance(path[i], path[(i+1) % len(path)]) for i in range(len(path)))
 
-def grc(num_cities, max_coordinate):
-    return [(random.randint(0, max_coordinate), random.randint(0, max_coordinate)) for _ in range(num_cities)]
+def generate_cities(count, max_coord):
+    return [(random.randint(0, max_coord), random.randint(0, max_coord)) for _ in range(count)]
 
-def nearneighbour(cities):
-    unvisited=cities[1:]
-    tour=[cities[0]]
-    while unvisited:
-        nearest = min(unvisited, key=lambda city: distance(tour[-1], city))
-        tour.append(nearest)
-        unvisited.remove(nearest)
-    return tour
+def nearest_neighbor_heuristic(city_list):
+    remaining = city_list[1:]
+    path = [city_list[0]]
+    while remaining:
+        nearest = min(remaining, key=lambda c: calc_distance(path[-1], c))
+        path.append(nearest)
+        remaining.remove(nearest)
+    return path
 
-def opt(tour):
+def two_opt(path):
     improved = True
     while improved:
         improved = False
-        for i in range(1, len(tour) - 2):
-            for j in range(i + 1, len(tour)):
-                if j - i == 1: continue
-                new_tour = tour[:i] + tour[i:j][::-1] + tour[j:]
-                if td(new_tour) < td(tour):
-                    tour = new_tour
+        for i in range(1, len(path) - 2):
+            for j in range(i + 1, len(path)):
+                if j - i == 1:
+                    continue
+                new_path = path[:i] + path[i:j][::-1] + path[j:]
+                if tour_length(new_path) < tour_length(path):
+                    path = new_path
                     improved = True
-    return tour
+    return path
 
-def tsp(cities):
-    start_time = time.time()
-    
-    initial_tour = nearneighbour(cities)
-    optimized_tour = opt(initial_tour)
-    
-    end_time = time.time()
-    execution_time = end_time - start_time
-    
-    return optimized_tour, td(optimized_tour), execution_time
+def solve_tsp(city_list):
+    start = time.time()
+    initial_path = nearest_neighbor_heuristic(city_list)
+    optimized_path = two_opt(initial_path)
+    end = time.time()
+    return optimized_path, tour_length(optimized_path), end - start
 
 num_cities = 20
-max_coordinate = 100
-    
-cities = grc(num_cities, max_coordinate)
-    
-tour,distance,time = tsp(cities)
-    
+max_coord = 100
+
+cities = generate_cities(num_cities, max_coord)
+
+best_path, best_dist, exec_time = solve_tsp(cities)
+
 print(f"Number of cities: {num_cities}")
-print(f"Best tour distance: {distance:.2f}")
-print(f"Execution time: {time:.4f} seconds")
+print(f"Best tour distance: {best_dist:.2f}")
+print(f"Execution time: {exec_time:.4f} seconds")
 print("Best tour:")
-for city in tour:
-    print(f"({city[0]}, {city[1]})")
+for c in best_path:
+    print(f"({c[0]}, {c[1]})")

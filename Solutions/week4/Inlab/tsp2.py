@@ -2,36 +2,38 @@ import math
 import random
 import time
 
-def distance(city1, city2):
-    return math.sqrt((city1[0]-city2[0])**2+(city1[1]-city2[1])**2)
+def calc_distance(p1, p2):
+    return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
-def td(tour):
-    return sum(distance(tour[i], tour[(i+1) % len(tour)]) for i in range(len(tour)))
+def total_distance(path):
+    return sum(calc_distance(path[i], path[(i+1) % len(path)]) for i in range(len(path)))
 
-def simulated_annealing(cities,temperature=10000,cooling_rate=0.995,st=1e-8,maxiter=1000000):
-    ct=cities[:]
-    bt=ct[:]
-    n = len(cities)
-    
+def simulated_annealing_tsp(coords, temp=10000, cooling=0.995, stop_temp=1e-8, max_iter=1000000):
+    current_path = coords[:]
+    best_path = coords[:]
+    n = len(coords)
     iteration = 1
-    while temperature > st and iteration < maxiter:
-        [i, j] = sorted(random.sample(range(n), 2))
-        new_tour = ct[:]
-        new_tour[i:j+1] = reversed(new_tour[i:j+1])
-        current_distance = td(ct)
-        new_distance = td(new_tour)
-        if new_distance < current_distance:
-            ct = new_tour
-            if new_distance < td(bt):
-                bt = new_tour
-        elif random.random() < math.exp((current_distance - new_distance) / temperature):
-            ct = new_tour  
-        temperature *= cooling_rate
-        iteration += 1
-    
-    return bt, td(bt)
 
-cities = [
+    while temp > stop_temp and iteration < max_iter:
+        i, j = sorted(random.sample(range(n), 2))
+        new_path = current_path[:]
+        new_path[i:j+1] = reversed(new_path[i:j+1])
+        curr_dist = total_distance(current_path)
+        new_dist = total_distance(new_path)
+
+        if new_dist < curr_dist:
+            current_path = new_path
+            if new_dist < total_distance(best_path):
+                best_path = new_path
+        elif random.random() < math.exp((curr_dist - new_dist) / temp):
+            current_path = new_path
+
+        temp *= cooling
+        iteration += 1
+
+    return best_path, total_distance(best_path)
+
+cities_data = [
     ("Jaipur",(26.9124, 75.7873)),
     ("Udaipur", (24.5854, 73.6684)),
     ("Jodhpur", (26.2389, 73.122)),
@@ -55,12 +57,12 @@ cities = [
     ("Jhalawar", (23.5867, 76.1632))
 ]
 
-city_coordinates = [city[1] for city in cities]
+coords_list = [c[1] for c in cities_data]
 
-start_time = time.time()
-best_tour, best_distance = simulated_annealing(city_coordinates)
-end_time = time.time()
+start = time.time()
+best_path, best_dist = simulated_annealing_tsp(coords_list)
+end = time.time()
 
-print(f"Number of cities: {len(city_coordinates)}")
-print(f"Best distance found: {best_distance:.2f}")
-print(f"Time taken: {end_time - start_time:.2f} seconds")
+print(f"Number of cities: {len(coords_list)}")
+print(f"Best distance found: {best_dist:.2f}")
+print(f"Time taken: {end - start:.2f} seconds")

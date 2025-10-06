@@ -1,17 +1,17 @@
 import time
 import heapq
 
-class Node:
-    def __init__(self, state, parent=None, g=0):
-        self.state = state
-        self.parent = parent
-        self.action = None
-        self.g = g  
+class Cell:
+    def __init__(self, board, prev=None, steps=0):
+        self.board = board
+        self.prev = prev
+        self.move = None
+        self.steps = steps
 
     def __lt__(self, other):
-        return self.g < other.g  
+        return self.steps < other.steps
 
-goal_state = [
+target_board = [
     [2, 2, 0, 0, 0, 2, 2],
     [2, 2, 0, 0, 0, 2, 2],
     [0, 0, 0, 0, 0, 0, 0],
@@ -20,7 +20,8 @@ goal_state = [
     [2, 2, 0, 0, 0, 2, 2],
     [2, 2, 0, 0, 0, 2, 2]
 ]
-initial_state = [
+
+start_board = [
     [2, 2, 1, 1, 1, 2, 2], 
     [2, 2, 1, 1, 1, 2, 2], 
     [1, 1, 1, 1, 1, 1, 1],
@@ -30,80 +31,77 @@ initial_state = [
     [2, 2, 1, 1, 1, 2, 2]
 ]
 
-v = 0
+expanded = 0
 
-def succesor(node):
-    global v
-    successors = []
-    dm = [(-2, 0), (2, 0), (0, -2), (0, 2)]
-    mm = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+def generate_moves(cell):
+    global expanded
+    nxt = []
+    jump2 = [(-2, 0), (2, 0), (0, -2), (0, 2)]
+    jump1 = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-    for x in range(7):
-        for y in range(7):
-            if node.state[x][y] == 1:
+    for i in range(7):
+        for j in range(7):
+            if cell.board[i][j] == 1:
                 for d in range(4):
-                    nx, ny = x + dm[d][0], y + dm[d][1]
-                    midx, midy = x + mm[d][0], y + mm[d][1]
+                    ni, nj = i + jump2[d][0], j + jump2[d][1]
+                    mi, mj = i + jump1[d][0], j + jump1[d][1]
+                    if 0 <= ni < 7 and 0 <= nj < 7 and cell.board[mi][mj] == 1 and cell.board[ni][nj] == 0:
+                        new_board = [row[:] for row in cell.board]
+                        new_board[i][j] = 0
+                        new_board[mi][mj] = 0
+                        new_board[ni][nj] = 1
+                        nxt_cell = Cell(new_board, cell, steps=cell.steps + 1)
+                        nxt_cell.move = [(i, j), (ni, nj)]
+                        nxt.append(nxt_cell)
+                        expanded += 1
+    return nxt
 
-                    if 0 <= nx < 7 and 0 <= ny < 7 and node.state[midx][midy] == 1 and node.state[nx][ny] == 0:
-                        ns = [row[:] for row in node.state]
-                        ns[x][y] = 0
-                        ns[midx][midy] = 0
-                        ns[nx][ny] = 1
-                        child_node = Node(ns, node, g=node.g + 1)
-                        child_node.action = [(x, y), (nx, ny)]
-                        successors.append(child_node)
-                        v += 1
-    return successors
+def priority_search():
+    open_list = []
+    visited = set()
+    start = Cell(start_board)
+    heapq.heappush(open_list, start)
 
-def pqs():
-    frontier = []
-    explored = set()
-
-    start_node = Node(initial_state)
-    heapq.heappush(frontier, start_node)
-
-    while frontier:
-        current_node = heapq.heappop(frontier)
-
-        print("Current state with path cost:", current_node.g)
-        for row in current_node.state:
+    while open_list:
+        node = heapq.heappop(open_list)
+        print("Board with cost:", node.steps)
+        for row in node.board:
             print(row)
         print()
 
-        if (current_node.state == goal_state):
-            print("Search completed")
-            return current_node
+        if node.board == target_board:
+            print("Finished")
+            return node
 
-        explored.add(str(current_node.state))
+        visited.add(str(node.board))
 
-        for child in succesor(current_node):
-            if str(child.state) not in explored:
-                heapq.heappush(frontier, child)
+        for nxt in generate_moves(node):
+            if str(nxt.board) not in visited:
+                heapq.heappush(open_list, nxt)
 
     return None
 
-def eact(goal_node):
-    actions = []
-    while goal_node.parent:
-        actions.append(goal_node.action)
-        goal_node = goal_node.parent
-    return actions[::-1]
+def trace_path(last):
+    seq = []
+    while last.prev:
+        seq.append(last.move)
+        last = last.prev
+    return seq[::-1]
 
-print("Priority Queue Search started")
-start_time = time.time()
-result_node = pqs()
-end_time = time.time()
+print("Search started")
+t1 = time.time()
+ans = priority_search()
+t2 = time.time()
 
-if result_node:
-    print("Total nodes expanded:", v)
-    print("time:", end_time - start_time)
-    print("Final state:")
-    for row in result_node.state:
+if ans:
+    print("Expanded nodes:", expanded)
+    print("Elapsed:", t2 - t1)
+    print("Goal:")
+    for row in ans.board:
         print(row)
     print("\nMoves:")
-    moves = eact(result_node)
-    for move in moves:
-        print(move)
+    steps = trace_path(ans)
+    for m in steps:
+        print(m)
 else:
-    print("No solution found.")
+    print("No solution")

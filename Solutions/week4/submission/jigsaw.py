@@ -1,93 +1,89 @@
 import random
 import math
 
-def cost_function(puzzle):
-    cost = 0
-    for i in range(512):
-        for j in range(512):
-            if j + 1 != 512 and (j + 1) % 128 == 0:
-                cost += abs(int(puzzle[(512*i) + j]) - int(puzzle[(512*i) + j + 1]))
-            if i + 1 != 512 and (i + 1) % 128 == 0:
-                cost += abs(int(puzzle[(512*i) + j]) - int(puzzle[(512*(i+1)) + j]))
-    return cost
+def evaluate_cost(grid):
+    total_cost = 0
+    for row in range(512):
+        for col in range(512):
+            if col + 1 != 512 and (col + 1) % 128 == 0:
+                total_cost += abs(int(grid[(512*row) + col]) - int(grid[(512*row) + col + 1]))
+            if row + 1 != 512 and (row + 1) % 128 == 0:
+                total_cost += abs(int(grid[(512*row) + col]) - int(grid[(512*(row+1)) + col]))
+    return total_cost
 
-def swap_pieces(puzzle):
-    i, j= random.sample(range(16), 2)
-    r1 = int(i/4)
-    r2 = int(j/4)
-    c1 = int(i%4)
-    c2 = int(j%4)
-    rn1 = int(128 * r1)
-    rn2 = int(128 * r2)
-    cn1 = int(128 * c1)
-    cn2 = int(128 * c2)
-    piece1 = []
-    piece2 = []
-    for i in range(128):
-        for j in range(128):
-            if((512*(rn1 + i)) + (cn1 + j) >= 262144):
-                print(i, j, rn1, cn1)
-            piece1.append(puzzle[(512*(rn1 + i)) + (cn1 + j)])
-    for i in range(128):
-        for j in range(128):
-            piece2.append(puzzle[(512*(rn2 + i)) + (cn2 + j)])
-    for i in range(128):
-        for j in range(128):
-            puzzle[(512*(rn1 + i)) + (cn1 + j)] = piece2[(i * 128) + j]
-    for i in range(128):
-        for j in range(128):
-            puzzle[(512*(rn2 + i)) + (cn2 + j)] = piece1[(i * 128) + j]
+def exchange_blocks(grid):
+    block_a, block_b = random.sample(range(16), 2)
+    ra, ca = divmod(block_a, 4)
+    rb, cb = divmod(block_b, 4)
 
-    return puzzle
+    row_a, row_b = 128*ra, 128*rb
+    col_a, col_b = 128*ca, 128*cb
 
-def simulated_annealing(puzzle, T_initial, alpha, stopping_temp):
-    minCost = 100000000
-    minState = []
-    c = 0
-    T = T_initial
-    current_state = puzzle
-    current_cost = cost_function(current_state)
-    
-    while T > stopping_temp:
-        c = c + 1
-        new_state = swap_pieces(current_state.copy())
-        new_cost = cost_function(new_state)
-      
-        if new_cost < current_cost:
-            current_state = new_state
-            current_cost = new_cost
-            if(current_cost < minCost):
-                minCost = current_cost
-                minState = current_state.copy()
+    block_data_a = []
+    block_data_b = []
+
+    for r in range(128):
+        for c in range(128):
+            block_data_a.append(grid[(512*(row_a + r)) + (col_a + c)])
+            block_data_b.append(grid[(512*(row_b + r)) + (col_b + c)])
+
+    for r in range(128):
+        for c in range(128):
+            grid[(512*(row_a + r)) + (col_a + c)] = block_data_b[(r*128)+c]
+            grid[(512*(row_b + r)) + (col_b + c)] = block_data_a[(r*128)+c]
+
+    return grid
+
+def anneal(grid, initial_temp, cooling_factor, final_temp):
+    best_cost = float('inf')
+    best_grid = []
+    T = initial_temp
+    current_grid = grid[:]
+    current_cost = evaluate_cost(current_grid)
+
+    while T > final_temp:
+        candidate_grid = exchange_blocks(current_grid.copy())
+        candidate_cost = evaluate_cost(candidate_grid)
+
+        if candidate_cost < current_cost:
+            current_grid = candidate_grid
+            current_cost = candidate_cost
+            if current_cost < best_cost:
+                best_cost = current_cost
+                best_grid = current_grid.copy()
         else:
-            if random.uniform(0, 1) < math.exp((current_cost - new_cost) / T):
-                current_state = new_state
-                current_cost = new_cost
-        
-        T *= alpha 
-    
-    return minState, minCost
+            prob = math.exp((current_cost - candidate_cost) / T)
+            if random.random() < prob:
+                current_grid = candidate_grid
+                current_cost = candidate_cost
 
-puzzle = []
-with open('week4/submission/scrambled_lena.mat', 'r') as file:
-    for _ in range(5):  
-        next(file)
-    
-    for line in file:
-        puzzle.append(line)
+        T *= cooling_factor
 
-ans = []
-minCost = 1000000
-for i in range(5):
-    T_initial = 1000
+    return best_grid, best_cost
+
+scrambled = []
+with open('week4/submission/scrambled_lena.mat', 'r') as f:
+    for _ in range(5):
+        next(f)
+    for line in f:
+        scrambled.append(line)
+
+final_solution = []
+lowest_cost = float('inf')
+
+for _ in range(5):
+    temp_start = 1000
     alpha = 0.99
-    stopping_temp = 0.1
-    solved_puzzle, cost = simulated_annealing(puzzle, T_initial, alpha, stopping_temp)
-    if(cost < minCost):
-        minCost = cost
-        puzzle = solved_puzzle.copy()
-        ans = puzzle
-    print(cost)
-with open('answer.mat', 'w') as file:
-    for item in ans:
-        file.write(f"{item}")
+    stop_temp = 0.1
+    result_grid, result_cost = anneal(scrambled, temp_start, alpha, stop_temp)
+
+    if result_cost < lowest_cost:
+        lowest_cost = result_cost
+        final_solution = result_grid.copy()
+        scrambled = final_solution.copy()
+
+    print(result_cost)
+
+with open('answer.mat', 'w') as f:
+    for line in final_solution:
+        f.write(f"{line}")
